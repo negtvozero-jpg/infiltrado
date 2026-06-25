@@ -3,9 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
   <title>Infiltrado</title>
+
   <style>
-    html, body {
+    html,
+    body {
       width: 100%;
       height: 100%;
       margin: 0;
@@ -17,34 +20,69 @@
       display: block;
       width: 100%;
       height: 100%;
+      touch-action: none;
     }
   </style>
 </head>
+
 <body>
   <canvas id="rive-canvas"></canvas>
 
   <script src="https://unpkg.com/@rive-app/webgl2@2.38.3"></script>
+
   <script>
+
     const RIVE_SRC = "./lite/main_lite.riv";
     const ARTBOARD = "Artboard";
     const STATE_MACHINE = "State Machine 1";
+    const TARGET_DPR = 1.5;
 
     const canvas = document.getElementById("rive-canvas");
 
-    function sizeCanvasLowResolution() {
-  const rect = canvas.getBoundingClientRect();
+    let riveInstance = null;
+    let lastCanvasWidth = 0;
+    let lastCanvasHeight = 0;
 
-  canvas.width = Math.round(rect.width);
-  canvas.height = Math.round(rect.height);
-}
+    function resizeCanvas() {
+      const rect = canvas.getBoundingClientRect();
 
-sizeCanvasLowResolution();
+      const width = Math.max(
+        1,
+        Math.round(rect.width * TARGET_DPR)
+      );
 
-    const riveInstance = new rive.Rive({
+      const height = Math.max(
+        1,
+        Math.round(rect.height * TARGET_DPR)
+      );
+
+      if (
+        width === lastCanvasWidth &&
+        height === lastCanvasHeight
+      ) {
+        return;
+      }
+
+      lastCanvasWidth = width;
+      lastCanvasHeight = height;
+
+      canvas.width = width;
+      canvas.height = height;
+
+      console.log(
+        `[Canvas] ${width} × ${height} | DPR usado: ${TARGET_DPR}`
+      );
+    }
+
+    resizeCanvas();
+
+    riveInstance = new rive.Rive({
       src: RIVE_SRC,
       canvas,
+
       artboard: ARTBOARD,
       stateMachines: STATE_MACHINE,
+
       autoplay: true,
       autoBind: true,
 
@@ -54,33 +92,68 @@ sizeCanvasLowResolution();
       }),
 
       onLoad: () => {
+        resizeCanvas();
 
         const vm = riveInstance.viewModelInstance;
+
         console.log("[Rive] carregado");
+        console.log(
+          "[Rive] DPR real do aparelho:",
+          window.devicePixelRatio || 1
+        );
+        console.log("[Rive] DPR usado:", TARGET_DPR);
         console.log("[Rive] View Model vinculado:", vm);
 
-        if (vm) {
-          for (const property of vm.properties || []) {
-            const name = property?.name;
-            if (!name) continue;
+        if (!vm) {
+          return;
+        }
 
-            try {
-              const list = vm.list(name);
-              if (list) {
-                console.log(`[Rive] Lista '${name}': ${list.length} item(ns)`);
-              }
-            } catch (_) {}
+        for (const property of vm.properties || []) {
+          const name = property?.name;
+
+          if (!name) {
+            continue;
+          }
+
+          try {
+            const list = vm.list(name);
+
+            if (list) {
+              console.log(
+                `[Rive] Lista '${name}': ${list.length} item(ns)`
+              );
+            }
+          } catch (_) {
+
           }
         }
       },
 
       onLoadError: (error) => {
-        console.error("[Rive] erro ao carregar:", error);
+        console.error(
+          "[Rive] Erro ao carregar o arquivo:",
+          error
+        );
       },
     });
 
-    window.addEventListener("resize", () => {
-      riveInstance.resizeDrawingSurfaceToCanvas();
+    const resizeObserver = new ResizeObserver(() => {
+      resizeCanvas();
+    });
+
+    resizeObserver.observe(canvas);
+
+    window.addEventListener("resize", resizeCanvas);
+    window.addEventListener("orientationchange", () => {
+      requestAnimationFrame(resizeCanvas);
+    });
+
+    window.addEventListener("beforeunload", () => {
+      resizeObserver.disconnect();
+
+      if (riveInstance) {
+        riveInstance.cleanup();
+      }
     });
 
     window.riveInstance = riveInstance;
