@@ -31,6 +31,15 @@
 
     const canvas = document.getElementById("rive-canvas");
 
+    function sizeCanvasLowResolution() {
+  const rect = canvas.getBoundingClientRect();
+
+  canvas.width = Math.round(rect.width);
+  canvas.height = Math.round(rect.height);
+}
+
+sizeCanvasLowResolution();
+
     const riveInstance = new rive.Rive({
       src: RIVE_SRC,
       canvas,
@@ -45,7 +54,6 @@
       }),
 
       onLoad: () => {
-        riveInstance.resizeDrawingSurfaceToCanvas();
 
         const vm = riveInstance.viewModelInstance;
         console.log("[Rive] carregado");
